@@ -1107,6 +1107,11 @@ event was found."
         (singlethreaded-connection
          (wait-for-event/event-loop c pattern timeout))))))
 
+#| Dirty bugfix. It returns evaluated value back to emacs.
+Required for last ecl on windows (check on windows 8)
+It needs reviews and correct fix from active developers
+|#
+#+ecl (defparameter *_dirty-fix-bug-requests-handling* nil)
 (defun wait-for-event/event-loop (connection pattern timeout)
   (assert (or (not timeout) (eq timeout t)))
   (loop 
@@ -1116,7 +1121,11 @@ event was found."
    (let ((events-enqueued (sconn.events-enqueued connection))
          (ready (wait-for-input (list (current-socket-io)) timeout)))
      (cond ((and timeout (not ready))
-            (return (values nil t)))
+	    #+ecl (if *_dirty-fix-bug-requests-handling*
+                      (sleep (if (numberp timeout) timeout 0.1))
+                      (return (values nil t)))
+            #-ecl (return (values nil t))
+	    )
            ((or (/= events-enqueued (sconn.events-enqueued connection))
                 (eq ready :interrupt))
             ;; rescan event queue, interrupts may enqueue new events 
